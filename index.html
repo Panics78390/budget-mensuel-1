@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f0f0e">
+<meta name="description" content="Gérez votre budget mensuel facilement">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Budget</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+
+:root{
+  --bg:#0f0f0e;
+  --bg2:#1a1a18;
+  --bg3:#242422;
+  --bg4:#2e2e2b;
+  --text:#f0ede6;
+  --text2:#8a8880;
+  --text3:#55534f;
+  --border:rgba(255,255,255,0.07);
+  --border2:rgba(255,255,255,0.13);
+  --green:#1DB87A;
+  --green-l:rgba(29,184,122,0.12);
+  --green-d:#a8f0d0;
+  --red:#E8504F;
+  --red-l:rgba(232,80,79,0.12);
+  --red-d:#f9c0c0;
+  --amber:#E09A20;
+  --amber-l:rgba(224,154,32,0.12);
+  --amber-d:#f5d08a;
+  --blue:#3A8FE8;
+  --blue-l:rgba(58,143,232,0.12);
+  --blue-d:#b0d4f8;
+  --nav-h:68px;
+  --safe-bottom:env(safe-area-inset-bottom, 0px);
+  --r:16px;
+  --rs:10px;
+}
+.light{
+  --bg:#f5f4f0;
+  --bg2:#ffffff;
+  --bg3:#eeecea;
+  --bg4:#e4e2df;
+  --text:#1a1a18;
+  --text2:#6b6a65;
+  --text3:#9c9a92;
+  --border:rgba(0,0,0,0.08);
+  --border2:rgba(0,0,0,0.15);
+  --green:#0d9e62;
+  --green-l:rgba(13,158,98,0.10);
+  --green-d:#085041;
+  --red:#d93d3c;
+  --red-l:rgba(217,61,60,0.10);
+  --red-d:#791f1f;
+  --amber:#b8720f;
+  --amber-l:rgba(184,114,15,0.10);
+  --amber-d:#633806;
+  --blue:#1a5fba;
+  --blue-l:rgba(26,95,186,0.10);
+  --blue-d:#0c447c;
+}
+
+html{height:100%;overscroll-behavior:none}
+body{
+  font-family:'Syne',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  height:100%;
+  overflow:hidden;
+  position:fixed;
+  width:100%;
+}
+
+/* SCREEN CONTAINER */
+.app{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  max-width:430px;
+  margin:0 auto;
+  position:relative;
+}
+
+/* THEME TOGGLE */
+.theme-toggle{
+  width:34px;height:34px;
+  border-radius:50%;
+  border:0.5px solid var(--border2);
+  background:var(--bg3);
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+  transition:background .15s;
+  flex-shrink:0;
+  line-height:1;
+}
+.theme-toggle:active{background:var(--bg4)}
+.status-bar{
+  height:env(safe-area-inset-top, 12px);
+  background:var(--bg);
+  flex-shrink:0;
+}
+
+/* CONTENT AREA */
+.screens{
+  flex:1;
+  overflow:hidden;
+  position:relative;
+}
+.screen{
+  position:absolute;
+  inset:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:16px 16px calc(var(--nav-h) + var(--safe-bottom) + 16px);
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(12px);
+  transition:opacity .25s ease, transform .25s ease;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+.screen::-webkit-scrollbar{display:none}
+.screen.active{
+  opacity:1;
+  pointer-events:auto;
+  transform:translateY(0);
+}
+
+/* BOTTOM NAV */
+.nav{
+  position:fixed;
+  bottom:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:100%;
+  max-width:430px;
+  background:rgba(15,15,14,0.88);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border-top:0.5px solid var(--border);
+  display:flex;
+  padding-bottom:var(--safe-bottom);
+  z-index:50;
+}
+.nav-btn{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  height:var(--nav-h);
+  background:none;
+  border:none;
+  color:var(--text3);
+  font-family:'Syne',sans-serif;
+  font-size:10px;
+  font-weight:500;
+  cursor:pointer;
+  transition:color .2s;
+  position:relative;
+}
+.nav-btn.active{color:var(--green)}
+.nav-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav-btn .nav-dot{
+  position:absolute;
+  top:10px;
+  width:4px;height:4px;
+  border-radius:50%;
+  background:var(--green);
+  opacity:0;
+  transition:opacity .2s;
+}
+.nav-btn.active .nav-dot{opacity:1}
+
+/* HEADER */
+.screen-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  margin-bottom:20px;
+}
+.screen-title{font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
+.screen-title span{color:var(--green)}
+
+/* PROFILE PILL */
+.profile-pill{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  background:var(--bg3);
+  border:0.5px solid var(--border2);
+  border-radius:40px;
+  padding:5px 10px 5px 6px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:background .15s;
+  white-space:nowrap;
+}
+.profile-pill:active{background:var(--bg4)}
+.profile-avatar{
+  width:24px;height:24px;
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;
+  flex-shrink:0;
+}
+
+/* KPI ROW */
+.kpi-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-bottom:16px;
+}
+.kpi-wide{grid-column:span 2}
+.kpi{
+  background:var(--bg2);
+  border:0.5px solid var(--border);
+  border-radius:var(--r);
+  padding:14px;
+  position:relative;
+  overflow:hidden;
+}
+.kpi::after{
+  content:'';
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:2px;
+}
+.kpi.g::after{background:linear-gradient(90deg,var(--green),transparent)}
+.kpi.r::after{background:linear-gradient(90deg,var(--red),transparent)}
+.kpi.a::after{background:linear-gradient(90deg,var(--amber),transparent)}
+.kpi.b::after{background:linear-gradient(90deg,var(--blue),transparent)}
+.kpi-lbl{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px}
+.kpi-val{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;line-height:1}
+.kpi-val.g{color:var(--green)}.kpi-val.r{color:var(--red)}.kpi-val.a{color:var(--amber)}.kpi-val.b{color:var(--blue)}
+.kpi-sub{font-size:10px;color:var(--text3);margin-top:4px}
+
+/* CARDS */
+.card{
+  background:var(--bg2);
+  border:0.5px solid var(--border);
+  border-radius:var(--r);
+  padding:16px;
+  margin-bottom:12px;
+}
+.card-title{
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.1em;
+  color:var(--text3);
+  margin-bottom:14px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.badge{
+  font-size:10px;
+  font-weight:600;
+  padding:3px 8px;
+  border-radius:6px;
+  font-family:'JetBrains Mono',monospace;
+}
+.badge.g{background:var(--green-l);color:var(--green-d)}
+.badge.r{background:var(--red-l);color:var(--red-d)}
+.badge.a{background:var(--amber-l);color:var(--amber-d)}
+.badge.b{background:var(--blue-l);color:var(--blue-d)}
+.badge.gray{background:var(--bg4);color:var(--text2)}
+
+/* LIST ITEMS */
+.list-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 0;
+  border-bottom:0.5px solid var(--border);
+}
+.list-item:last-child{border-bottom:none}
+.list-item-name{font-size:13px;font-weight:500;color:var(--text2);flex:1;margin-right:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list-item-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;color:var(--text);white-space:nowrap}
+.list-item-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.list-item-date{font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 6px;border-radius:4px;white-space:nowrap;margin-left:6px;font-family:'JetBrains Mono',monospace}
+.list-item-left{flex:1;min-width:0}
+
+/* PROGRESS BARS */
+.prog-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+.prog-lbl{font-size:12px;color:var(--text2);width:130px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prog-bg{flex:1;height:4px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.prog-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text2);width:52px;text-align:right;flex-shrink:0}
+
+/* DONUT LEGEND */
+.donut-legend{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:12px}
+.donut-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.legend-dot{width:6px;height:6px;border-radius:2px;flex-shrink:0}
+
+/* LIVRET CARD */
+.livret-card{
+  background:var(--bg3);
+  border:0.5px solid var(--border);
+  border-radius:var(--rs);
+  padding:12px;
+  margin-bottom:8px;
+}
+.livret-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+}
+.livret-name{font-size:13px;font-weight:700}
+.livret-taux{font-size:11px;color:var(--blue);background:var(--blue-l);padding:2px 7px;border-radius:5px;font-weight:600}
+.livret-solde{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;color:var(--green);margin-bottom:4px}
+.livret-interests{display:flex;gap:12px}
+.livret-int-item{font-size:11px;color:var(--text3)}
+.livret-int-item strong{color:var(--green-d);font-weight:600}
+
+/* FISCALITE */
+.tranche-item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:8px 0;
+  border-bottom:0.5px solid var(--border);
+  font-size:12px;
+}
+.tranche-item:last-child{border-bottom:none}
+.tranche-range{color:var(--text2)}
+.tranche-pct{font-family:'JetBrains Mono',monospace;font-weight:600}
+
+.infobox{
+  border-radius:var(--rs);
+  padding:12px 14px;
+  font-size:12px;
+  margin-bottom:10px;
+  line-height:1.5;
+}
+.infobox.g{background:var(--green-l);color:var(--green-d)}
+.infobox.b{background:var(--blue-l);color:var(--blue-d)}
+.infobox.a{background:var(--amber-l);color:var(--amber-d)}
+.infobox.r{background:var(--red-l);color:var(--red-d)}
+
+/* REGLE 50/30/20 */
+.rule-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:10px 0;
+  border-bottom:0.5px solid var(--border);
+}
+.rule-row:last-child{border-bottom:none}
+.rule-color{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.rule-label{font-size:13px;flex:1}
+.rule-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500}
+
+/* BOTTOM SHEET / MODAL */
+.sheet-bg{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.6);
+  z-index:80;
+  backdrop-filter:blur(4px);
+}
+.sheet-bg.open{display:flex;align-items:flex-end}
+.sheet{
+  background:var(--bg2);
+  border-radius:20px 20px 0 0;
+  border:0.5px solid var(--border2);
+  border-bottom:none;
+  width:100%;
+  max-width:430px;
+  margin:0 auto;
+  padding:20px 20px calc(20px + var(--safe-bottom));
+  transform:translateY(100%);
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+.sheet-bg.open .sheet{transform:translateY(0)}
+.sheet-handle{width:36px;height:4px;background:var(--bg4);border-radius:2px;margin:0 auto 18px}
+.sheet h3{font-size:16px;font-weight:700;margin-bottom:18px}
+.sheet label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);display:block;margin-bottom:6px}
+.sheet input[type=text]{
+  width:100%;
+  background:var(--bg3);
+  border:0.5px solid var(--border2);
+  color:var(--text);
+  font-family:'Syne',sans-serif;
+  font-size:15px;
+  padding:12px 14px;
+  border-radius:var(--rs);
+  outline:none;
+  margin-bottom:14px;
+  appearance:none;
+}
+.sheet input[type=text]:focus{border-color:var(--green)}
+.sheet-btns{display:flex;gap:10px;margin-top:4px}
+.btn{
+  font-family:'Syne',sans-serif;
+  font-size:13px;
+  font-weight:600;
+  padding:12px 18px;
+  border-radius:var(--rs);
+  cursor:pointer;
+  border:0.5px solid var(--border2);
+  background:transparent;
+  color:var(--text2);
+  transition:all .15s;
+  flex:1;
+}
+.btn.primary{background:var(--green);color:#000;border-color:var(--green)}
+.btn:active{transform:scale(.97)}
+
+/* FAB (add button) */
+.fab{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  background:none;
+  border:none;
+  font-family:'Syne',sans-serif;
+  font-size:12px;
+  font-weight:600;
+  color:var(--text3);
+  cursor:pointer;
+  padding:10px 0 2px;
+  transition:color .15s;
+}
+.fab:active{color:var(--green)}
+.fab svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+
+/* SECTION TOTAL ROW */
+.total-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:10px 0 0;
+  border-top:0.5px solid var(--border2);
+  margin-top:4px;
+}
+.total-lbl{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+.total-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600}
+
+/* CHART */
+.chart-wrap{position:relative;width:100%}
+
+/* EDITABLE INLINE */
+.inline-edit-btn{
+  background:none;
+  border:none;
+  color:var(--text3);
+  cursor:pointer;
+  padding:4px 8px;
+  border-radius:6px;
+  font-size:18px;
+  line-height:1;
+  transition:all .15s;
+  flex-shrink:0;
+}
+.inline-edit-btn:active{color:var(--red);background:var(--red-l)}
+
+/* ALERT TOAST */
+.toast{
+  position:fixed;
+  bottom:calc(var(--nav-h) + var(--safe-bottom) + 10px);
+  left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:var(--bg4);
+  border:0.5px solid var(--border2);
+  border-radius:40px;
+  padding:10px 18px;
+  font-size:13px;
+  font-weight:600;
+  z-index:100;
+  opacity:0;
+  transition:opacity .25s, transform .25s;
+  white-space:nowrap;
+  pointer-events:none;
+  max-width:calc(100% - 32px);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.g{color:var(--green-d);background:var(--bg2);border-color:var(--green)}
+.toast.r{color:var(--red-d);background:var(--bg2);border-color:var(--red)}
+.toast.a{color:var(--amber-d);background:var(--bg2);border-color:var(--amber)}
+
+/* PROFIL PICKER */
+.profile-list-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px;
+  border:0.5px solid var(--border);
+  border-radius:var(--rs);
+  cursor:pointer;
+  margin-bottom:8px;
+  transition:background .15s;
+}
+.profile-list-item:active{background:var(--bg3)}
+.profile-list-item.selected{border-color:var(--green);background:var(--green-l)}
+.profile-list-name{font-size:14px;font-weight:600;flex:1}
+.profile-list-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.profile-del{
+  background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;
+  padding:4px 8px;border-radius:6px;
+}
+.profile-del:active{background:var(--red-l)}
+
+/* SEPARATORS */
+.sep{height:0.5px;background:var(--border);margin:14px 0}
+
+/* DETAIL SHEET for editing */
+.edit-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 12px;
+  background:var(--bg3);
+  border-radius:var(--rs);
+  margin-bottom:6px;
+}
+.edit-row-name{flex:1;font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.edit-row-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;min-width:70px;text-align:right;color:var(--text)}
+.edit-row-actions{display:flex;gap:4px}
+.icon-btn{
+  background:none;border:none;
+  width:28px;height:28px;
+  border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  color:var(--text3);
+  font-size:13px;
+  transition:all .15s;
+}
+.icon-btn:active{background:var(--bg4)}
+
+/* SWIPE HINT */
+.swipe-container{overflow:hidden}
+.row-swipe{
+  position:relative;
+  overflow:hidden;
+  border-radius:var(--rs);
+  margin-bottom:6px;
+}
+.row-front{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  background:var(--bg3);
+  position:relative;
+  z-index:2;
+  transition:transform .2s;
+}
+.row-back{
+  position:absolute;
+  inset:0;
+  background:var(--red);
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  padding-right:14px;
+  z-index:1;
+  border-radius:var(--rs);
+}
+.row-back-lbl{font-size:11px;font-weight:700;color:#fff}
+
+/* SCROLLABLE SECTION */
+.section-scroll{
+  max-height:240px;
+  overflow-y:auto;
+  scrollbar-width:none;
+}
+.section-scroll::-webkit-scrollbar{display:none}
+
+/* CHART wrapper */
+.chart-container{position:relative;height:180px;width:100%}
+
+/* YEAR VIEW */
+.yr-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+.yr-item{background:var(--bg3);border-radius:var(--rs);padding:10px;text-align:center}
+.yr-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.yr-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="status-bar"></div>
+
+  <!-- SCREENS -->
+  <div class="screens">
+
+    <!-- ACCUEIL (Vue générale) -->
+    <div class="screen active" id="screen-home">
+      <div class="screen-header">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="screen-title">Budget</div>
+        </div>
+        <button class="profile-pill" onclick="openSheet('sheet-profiles')">
+          <span class="profile-avatar" id="header-avatar" style="background:#1DB87A22;color:#1DB87A">👤</span>
+          <span id="header-name">Moi</span>
+        </button>
+        <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Thème"></button>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi g">
+          <div class="kpi-lbl">Revenus</div>
+          <div class="kpi-val g" id="kpi-rev">—</div>
+          <div class="kpi-sub" id="kpi-rev-sub">par mois</div>
+        </div>
+        <div class="kpi r">
+          <div class="kpi-lbl">Charges</div>
+          <div class="kpi-val r" id="kpi-ch">—</div>
+          <div class="kpi-sub" id="kpi-ch-sub">—</div>
+        </div>
+        <div class="kpi a kpi-wide">
+          <div class="kpi-lbl">Solde restant</div>
+          <div class="kpi-val a" id="kpi-solde">—</div>
+          <div class="kpi-sub" id="kpi-solde-sub">—</div>
+        </div>
+      </div>
+
+      <!-- Donut chart -->
+      <div class="card">
+        <div class="card-title">Répartition</div>
+        <div class="chart-container">
+          <canvas id="chart-donut"></canvas>
+        </div>
+        <div class="donut-legend">
+          <div class="donut-legend-item"><span class="legend-dot" style="background:#E8504F"></span>Fixes <b id="leg-fix" style="font-family:'JetBrains Mono',monospace">—</b></div>
+          <div class="donut-legend-item"><span class="legend-dot" style="background:#E09A20"></span>Variables <b id="leg-var" style="font-family:'JetBrains Mono',monospace">—</b></div>
+          <div class="donut-legend-item"><span class="legend-dot" style="background:#1DB87A"></span>Solde <b id="leg-sol" style="font-family:'JetBrains Mono',monospace">—</b></div>
+        </div>
+      </div>
+
+      <!-- Prog bars -->
+      <div class="card">
+        <div class="card-title">Taux d'effort</div>
+        <div id="prog-bars"></div>
+      </div>
+
+      <!-- Annual View -->
+      <div class="card">
+        <div class="card-title">Annuel</div>
+        <div class="yr-grid">
+          <div class="yr-item">
+            <div class="yr-label">Revenus</div>
+            <div class="yr-val" id="yr-rev">—</div>
+          </div>
+          <div class="yr-item">
+            <div class="yr-label">Charges</div>
+            <div class="yr-val" id="yr-ch">—</div>
+          </div>
+          <div class="yr-item">
+            <div class="yr-label">Épargne</div>
+            <div class="yr-val" id="yr-ep">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHARGES -->
+    <div class="screen" id="screen-charges">
+      <div class="screen-header" style="margin-bottom:16px">
+        <div class="screen-title">Charges</div>
+        <span class="badge r" id="badge-charges-total">—</span>
+      </div>
+
+      <!-- Revenus -->
+      <div class="card">
+        <div class="card-title">
+          Revenus
+          <span class="badge g" id="badge-rev">—</span>
+        </div>
+        <div id="list-revenus"></div>
+        <button class="fab" onclick="openAddSheet('revenus')">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter
+        </button>
+      </div>
+
+      <!-- Charges variables -->
+      <div class="card">
+        <div class="card-title">
+          Variables / Épargne
+          <span class="badge a" id="badge-vars">—</span>
+        </div>
+        <div id="list-variables"></div>
+        <button class="fab" onclick="openAddSheet('variables')">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter
+        </button>
+      </div>
+
+      <!-- Charges fixes -->
+      <div class="card">
+        <div class="card-title">
+          Charges fixes
+          <span class="badge r" id="badge-fixes">—</span>
+        </div>
+        <div id="list-fixes"></div>
+        <button class="fab" onclick="openAddSheet('fixes')">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter
+        </button>
+      </div>
+    </div>
+
+    <!-- ÉPARGNE -->
+    <div class="screen" id="screen-epargne">
+      <div class="screen-header" style="margin-bottom:16px">
+        <div class="screen-title">Épargne</div>
+        <span class="badge b" id="badge-ep-total">—</span>
+      </div>
+
+      <div id="livrets-list"></div>
+
+      <button class="fab" onclick="openAddSheet('livret')" style="padding-left:4px;color:var(--blue)">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Ajouter un livret
+      </button>
+
+      <!-- Évolution chart -->
+      <div class="card" style="margin-top:4px">
+        <div class="card-title">Évolution 12 mois</div>
+        <div class="chart-container" style="height:160px">
+          <canvas id="chart-evo"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- FISCALITÉ -->
+    <div class="screen" id="screen-fiscal">
+      <div class="screen-header" style="margin-bottom:16px">
+        <div class="screen-title">Fiscalité</div>
+      </div>
+
+      <!-- Tranche -->
+      <div class="card">
+        <div class="card-title">Tranches IR 2024</div>
+        <div class="tranche-item"><span class="tranche-range">0 € — 11 294 €</span><span class="tranche-pct" style="color:var(--green)">0 %</span></div>
+        <div class="tranche-item"><span class="tranche-range">11 295 € — 28 797 €</span><span class="tranche-pct" style="color:var(--amber)">11 %</span></div>
+        <div class="tranche-item"><span class="tranche-range">28 798 € — 82 341 €</span><span class="tranche-pct" style="color:var(--amber)">30 %</span></div>
+        <div class="tranche-item"><span class="tranche-range">82 342 € — 177 106 €</span><span class="tranche-pct" style="color:var(--red)">41 %</span></div>
+        <div class="tranche-item"><span class="tranche-range">+ de 177 107 €</span><span class="tranche-pct" style="color:var(--red)">45 %</span></div>
+        <div class="infobox b" style="margin-top:12px;margin-bottom:0" id="tranche-info">—</div>
+      </div>
+
+      <!-- LEP -->
+      <div class="card">
+        <div class="card-title">Livret d'Épargne Populaire</div>
+        <div class="list-item">
+          <span class="list-item-name">Plafond 1 part</span>
+          <span class="list-item-val" style="font-family:'JetBrains Mono',monospace">21 353 €</span>
+        </div>
+        <div class="infobox" id="lep-box" style="margin-top:8px;margin-bottom:0">—</div>
+      </div>
+
+      <!-- Règle 50/30/20 -->
+      <div class="card">
+        <div class="card-title">Règle 50 / 30 / 20</div>
+        <div class="rule-row">
+          <span class="rule-color" style="background:#1DB87A"></span>
+          <span class="rule-label">Essentiel (50 %)</span>
+          <span class="rule-val" style="color:var(--green)" id="rule-50">—</span>
+        </div>
+        <div class="rule-row">
+          <span class="rule-color" style="background:#E09A20"></span>
+          <span class="rule-label">Plaisir (30 %)</span>
+          <span class="rule-val" style="color:var(--amber)" id="rule-30">—</span>
+        </div>
+        <div class="rule-row">
+          <span class="rule-color" style="background:#3A8FE8"></span>
+          <span class="rule-label">Épargne (20 %)</span>
+          <span class="rule-val" style="color:var(--blue)" id="rule-20">—</span>
+        </div>
+      </div>
+
+      <!-- Liberté financière -->
+      <div class="card">
+        <div class="card-title">Vivre sans travailler</div>
+        <div class="list-item">
+          <span class="list-item-name">Besoin mensuel</span>
+          <span class="list-item-val" id="vst-mois">—</span>
+        </div>
+        <div class="list-item">
+          <span class="list-item-name">Besoin annuel</span>
+          <span class="list-item-val" id="vst-an">—</span>
+        </div>
+        <div class="list-item">
+          <span class="list-item-name">Sur 62 ans</span>
+          <span class="list-item-val" style="color:var(--red)" id="vst-62">—</span>
+        </div>
+        <div class="infobox b" style="margin-top:10px;margin-bottom:0" id="ep-rate-box">—</div>
+      </div>
+    </div>
+
+  </div><!-- end screens -->
+
+  <!-- BOTTOM NAV -->
+  <nav class="nav">
+    <button class="nav-btn active" id="nav-home" onclick="showScreen('home')">
+      <div class="nav-dot"></div>
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/></svg>
+      Accueil
+    </button>
+    <button class="nav-btn" id="nav-charges" onclick="showScreen('charges')">
+      <div class="nav-dot"></div>
+      <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Charges
+    </button>
+    <button class="nav-btn" id="nav-epargne" onclick="showScreen('epargne')">
+      <div class="nav-dot"></div>
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.93V18h-2v-1.07C9.39 16.56 8 15.38 8 14c0-.55.45-1 1-1s1 .45 1 1c0 .55.9 1 2 1s2-.45 2-1-1-1-2-1c-2.21 0-4-1.79-4-4 0-1.38 1.39-2.56 3-2.93V6h2v1.07c1.61.37 3 1.55 3 2.93 0 .55-.45 1-1 1s-1-.45-1-1c0-.55-.9-1-2-1s-2 .45-2 1 1 1 2 1c2.21 0 4 1.79 4 4 0 1.38-1.39 2.56-3 2.93z"/></svg>
+      Épargne
+    </button>
+    <button class="nav-btn" id="nav-fiscal" onclick="showScreen('fiscal')">
+      <div class="nav-dot"></div>
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      Fiscalité
+    </button>
+  </nav>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- SHEET: PROFILS -->
+<div class="sheet-bg" id="sheet-profiles" onclick="closeSheetBg(event,'sheet-profiles')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3>Profils</h3>
+    <div id="profile-list-content"></div>
+    <div class="sep"></div>
+    <label>Nouveau profil</label>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="new-profile-name" placeholder="Prénom" style="margin-bottom:0;flex:1">
+      <button class="btn primary" onclick="addProfile()" style="flex:none;padding:12px 16px">+</button>
+    </div>
+    <div style="margin-top:14px">
+      <button class="btn" onclick="closeSheet('sheet-profiles')" style="width:100%">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHEET: ADD ITEM -->
+<div class="sheet-bg" id="sheet-add" onclick="closeSheetBg(event,'sheet-add')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3 id="sheet-add-title">Ajouter</h3>
+    <label>Nom</label>
+    <input type="text" id="add-name" placeholder="Ex: Loyer">
+    <label>Montant (€)</label>
+    <input type="text" id="add-amount" placeholder="Ex: 800" inputmode="decimal">
+    <div id="add-date-group" style="display:none">
+      <label>Jour de prélèvement</label>
+      <input type="text" id="add-date" placeholder="Ex: 5" inputmode="numeric">
+    </div>
+    <div id="add-livret-group" style="display:none">
+      <label>Taux annuel (%)</label>
+      <input type="text" id="add-taux" placeholder="Ex: 2.25" inputmode="decimal">
+    </div>
+    <div class="sheet-btns">
+      <button class="btn" onclick="closeSheet('sheet-add')">Annuler</button>
+      <button class="btn primary" onclick="confirmAdd()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHEET: EDIT ITEM -->
+<div class="sheet-bg" id="sheet-edit" onclick="closeSheetBg(event,'sheet-edit')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3 id="sheet-edit-title">Modifier</h3>
+    <label>Nom</label>
+    <input type="text" id="edit-name">
+    <label>Montant (€)</label>
+    <input type="text" id="edit-amount" inputmode="decimal">
+    <div id="edit-date-group" style="display:none">
+      <label>Jour de prélèvement</label>
+      <input type="text" id="edit-date" inputmode="numeric">
+    </div>
+    <div id="edit-taux-group" style="display:none">
+      <label>Taux annuel (%)</label>
+      <input type="text" id="edit-taux" inputmode="decimal">
+    </div>
+    <div class="sheet-btns">
+      <button class="btn" onclick="closeSheet('sheet-edit')">Annuler</button>
+      <button class="btn primary" onclick="confirmEdit()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// PROFILES
+// ============================================================
+const PROFILE_COLORS = ['#1DB87A','#3A8FE8','#E09A20','#E8504F','#7C70E8','#E06A30'];
+const PROFILE_AVATARS = ['👤','👦','👧','👨','👩','🧒'];
+
+const DEFAULT_PROFILES = [
+  { id: 'moi', name: 'Moi', color: '#1DB87A', avatar: '👤' },
+  { id: 'fils', name: 'Mon fils', color: '#3A8FE8', avatar: '👦' }
+];
+
+let profiles = JSON.parse(JSON.stringify(DEFAULT_PROFILES));
+let activeProfileId = 'moi';
+
+// ============================================================
+// DATA
+// ============================================================
+const DEFAULT_DATA = {
+  revenus: [
+    {id:1, name:'Salaire', val:1693.07},
+    {id:2, name:'Locatifs', val:0},
+    {id:3, name:'Dividendes', val:0},
+    {id:4, name:'Aides', val:0}
+  ],
+  fixes: [
+    {id:1, name:'Loyer', val:914.25, date:5},
+    {id:2, name:'Ass. maison', val:37.05, date:5},
+    {id:3, name:'Ass. voiture', val:41.00, date:19},
+    {id:4, name:'Bouygues tél', val:19.99, date:6},
+    {id:5, name:'Box internet', val:52.49, date:5},
+    {id:6, name:'Banque', val:1.00, date:27},
+    {id:7, name:'Essence', val:120.00, date:null},
+    {id:8, name:'Virement Moi', val:20.00, date:13},
+    {id:9, name:'Virement Aless', val:30.00, date:13},
+    {id:10, name:'Tél Aless', val:9.99, date:null},
+    {id:11, name:'Ass. pro', val:3.18, date:null}
+  ],
+  variables: [
+    {id:1, name:'Épargne crypto', val:200.00},
+    {id:2, name:'Épargne Livret A', val:100.00}
+  ],
+  livrets: [
+    {id:1, name:'Livret A', solde:3563.73, taux:1.7},
+    {id:2, name:'LDDS', solde:23.08, taux:1.7},
+    {id:3, name:'LEP', solde:32.94, taux:2.4}
+  ]
+};
+
+let data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+let nextId = 200;
+let modalTarget = '';
+let editTarget = null; // {key, id}
+let charts = {};
+
+// ============================================================
+// THEME
+// ============================================================
+let isLight = false;
+
+function toggleTheme(){
+  isLight = !isLight;
+  applyTheme();
+  localStorage.setItem('bgt_theme', isLight ? 'light' : 'dark');
+}
+function applyTheme(){
+  document.body.classList.toggle('light', isLight);
+  const btn = document.getElementById('theme-toggle');
+  if(btn) btn.textContent = isLight ? '🌙' : '☀️';
+}
+function loadTheme(){
+  const saved = localStorage.getItem('bgt_theme');
+  if(saved) isLight = saved === 'light';
+  else isLight = matchMedia('(prefers-color-scheme:light)').matches;
+  applyTheme();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  loadTheme();
+  loadProfilesMeta();
+  loadProfileData();
+  initCharts();
+  renderAll();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+let currentScreen = 'home';
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+  currentScreen = id;
+  if (id === 'charges') renderTables();
+}
+
+// ============================================================
+// LOAD / SAVE
+// ============================================================
+function loadData() { loadProfilesMeta(); loadProfileData(); }
+function saveData() { saveProfileData(); saveProfilesMeta(); }
+
+function loadProfilesMeta() {
+  try { const s=localStorage.getItem('bgt_profiles'); if(s) profiles=JSON.parse(s); } catch(e){}
+}
+function saveProfilesMeta() {
+  localStorage.setItem('bgt_profiles', JSON.stringify(profiles));
+}
+function loadProfileData() {
+  try {
+    const s=localStorage.getItem('bgt_data_'+activeProfileId);
+    if(s){data=JSON.parse(s);return;}
+  }catch(e){}
+  data=JSON.parse(JSON.stringify(DEFAULT_DATA));
+  if(activeProfileId!=='moi'){
+    data.revenus=[{id:1,name:'Revenus',val:0}];
+    data.fixes=[{id:1,name:'Loyer',val:0,date:null}];
+    data.variables=[{id:1,name:'Épargne',val:0}];
+    data.livrets=[{id:1,name:'Livret A',solde:0,taux:1.7}];
+  }
+}
+function saveProfileData() {
+  localStorage.setItem('bgt_data_'+activeProfileId, JSON.stringify(data));
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function sum(arr){return arr.reduce((a,b)=>a+(+b.val||0),0);}
+function fmt(n){return Math.round(+n).toLocaleString('fr-FR')+' €';}
+function fmt2(n){return (+n).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}
+function pct(n){return (+n).toFixed(1)+'%';}
+function intA(s,t){return (+s)*(+t)/100;}
+function intM(s,t){return intA(s,t)/12;}
+
+function calcs(){
+  const rev=sum(data.revenus);
+  const fixes=sum(data.fixes);
+  const vars=sum(data.variables);
+  const charges=fixes+vars;
+  const solde=rev-charges;
+  const tauxEp=rev>0?(vars+Math.max(0,solde))/rev*100:0;
+  const epTotal=data.livrets.reduce((a,l)=>a+(+l.solde),0);
+  const intTotal=data.livrets.reduce((a,l)=>a+intA(l.solde,l.taux),0);
+  return{rev,fixes,vars,charges,solde,tauxEp,epTotal,intTotal};
+}
+
+// ============================================================
+// RENDER ALL
+// ============================================================
+function renderAll(){
+  const c=calcs();
+  renderHeader(c);
+  renderKPIs(c);
+  renderProgBars(c);
+  renderAnnual(c);
+  if(currentScreen==='charges') renderTables();
+  renderLivrets(c);
+  renderFiscalite(c);
+  updateCharts(c);
+  saveData();
+}
+
+function renderHeader(c){
+  const p=profiles.find(x=>x.id===activeProfileId)||profiles[0];
+  document.getElementById('header-name').textContent=p.name;
+  document.getElementById('header-avatar').textContent=p.avatar;
+  document.getElementById('header-avatar').style.background=p.color+'22';
+  document.getElementById('header-avatar').style.color=p.color;
+}
+
+function renderKPIs(c){
+  document.getElementById('kpi-rev').textContent=fmt(c.rev);
+  document.getElementById('kpi-ch').textContent=fmt(c.charges);
+  document.getElementById('kpi-ch-sub').textContent=fmt(c.fixes)+' fixes';
+  const el=document.getElementById('kpi-solde');
+  el.textContent=fmt(c.solde);
+  el.className='kpi-val '+(c.solde>=0?'a':'r');
+  document.getElementById('kpi-solde-sub').textContent=c.solde>=0?'Taux épargne : '+pct(c.tauxEp):'Déficit mensuel';
+}
+
+function renderAnnual(c){
+  document.getElementById('yr-rev').textContent=fmt(c.rev*12);
+  document.getElementById('yr-ch').textContent=fmt(c.charges*12);
+  document.getElementById('yr-ep').textContent=fmt(c.epTotal);
+}
+
+function renderProgBars(c){
+  const rev=c.rev||1;
+  const items=[
+    ...data.fixes.filter(r=>r.val>0).map(r=>({label:r.name,val:r.val,color:'#E8504F'})),
+    ...data.variables.filter(r=>r.val>0).map(r=>({label:r.name,val:r.val,color:'#1DB87A'}))
+  ].sort((a,b)=>b.val-a.val).slice(0,7);
+  const max=items.length?Math.max(...items.map(i=>i.val/rev*100)):1;
+  document.getElementById('prog-bars').innerHTML=items.map(item=>{
+    const p=(item.val/rev*100);
+    return `<div class="prog-item">
+      <div class="prog-lbl">${item.label}</div>
+      <div class="prog-bg"><div class="prog-fill" style="width:${(p/max*100).toFixed(1)}%;background:${item.color}"></div></div>
+      <div class="prog-num">${fmt(item.val)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// TABLES (Charges screen)
+// ============================================================
+function renderTables(){
+  const c=calcs();
+  document.getElementById('badge-charges-total').textContent=fmt(c.charges);
+  document.getElementById('badge-rev').textContent=fmt(c.rev);
+  document.getElementById('badge-vars').textContent=fmt(c.vars);
+  document.getElementById('badge-fixes').textContent=fmt(c.fixes);
+  renderList('list-revenus', data.revenus, 'revenus', false);
+  renderList('list-variables', data.variables, 'variables', false);
+  renderList('list-fixes', data.fixes, 'fixes', true);
+}
+
+function renderList(containerId, arr, key, hasDate){
+  const el=document.getElementById(containerId);
+  el.innerHTML=arr.map(row=>`
+    <div class="list-item">
+      <div class="list-item-left">
+        <div class="list-item-name">${esc(row.name)}</div>
+        ${hasDate&&row.date?`<div class="list-item-sub">Prélèv. le ${row.date}</div>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="list-item-val">${fmt(row.val)}</div>
+        <button class="icon-btn" onclick="openEditSheet('${key}',${row.id})" style="color:var(--text3)">✎</button>
+        <button class="icon-btn" onclick="deleteRow('${key}',${row.id})" style="color:var(--text3)">×</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function esc(s){return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function deleteRow(key,id){
+  if(data[key].length<=1){toast('Il faut au moins une ligne.','a');return;}
+  data[key]=data[key].filter(r=>r.id!==id);
+  renderAll();
+  toast('Supprimé','r');
+}
+
+// ============================================================
+// LIVRETS
+// ============================================================
+function renderLivrets(c){
+  document.getElementById('badge-ep-total').textContent=fmt(c.epTotal);
+  const colors=['#1DB87A','#3A8FE8','#E09A20','#E8504F','#7C70E8','#E06A30'];
+  document.getElementById('livrets-list').innerHTML=data.livrets.map((l,i)=>{
+    const color=colors[i%colors.length];
+    return `<div class="livret-card">
+      <div class="livret-header">
+        <div class="livret-name">${esc(l.name)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="livret-taux">${l.taux}%</span>
+          <button class="icon-btn" onclick="openEditSheet('livret',${l.id})">✎</button>
+          <button class="icon-btn" onclick="deleteLivret(${l.id})" style="color:var(--text3)">×</button>
+        </div>
+      </div>
+      <div class="livret-solde" style="color:${color}">${fmt2(l.solde)}</div>
+      <div class="livret-interests">
+        <div class="livret-int-item">/ mois : <strong>+${fmt2(intM(l.solde,l.taux))}</strong></div>
+        <div class="livret-int-item">/ an : <strong>+${fmt2(intA(l.solde,l.taux))}</strong></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteLivret(id){
+  if(data.livrets.length<=1){toast('Il faut au moins un livret.','a');return;}
+  data.livrets=data.livrets.filter(l=>l.id!==id);
+  renderAll();
+  toast('Supprimé','r');
+}
+
+// ============================================================
+// FISCALITE
+// ============================================================
+function renderFiscalite(c){
+  const revAn=c.rev*12;
+  let tranche='0 %';
+  if(revAn>177106) tranche='45 %';
+  else if(revAn>82341) tranche='41 %';
+  else if(revAn>28797) tranche='30 %';
+  else if(revAn>11294) tranche='11 %';
+  document.getElementById('tranche-info').textContent=`Revenu annuel estimé : ${fmt(revAn)} → Tranche ${tranche}`;
+  const elig=revAn<=21353;
+  const lepBox=document.getElementById('lep-box');
+  lepBox.textContent=elig?'✓ Tu es éligible au LEP':'✗ Revenu trop élevé pour le LEP (> 21 353 €)';
+  lepBox.className='infobox '+(elig?'g':'r');
+  document.getElementById('rule-50').textContent=fmt(c.rev*0.5);
+  document.getElementById('rule-30').textContent=fmt(c.rev*0.3);
+  document.getElementById('rule-20').textContent=fmt(c.rev*0.2);
+  document.getElementById('vst-mois').textContent=fmt(c.charges);
+  document.getElementById('vst-an').textContent=fmt(c.charges*12);
+  document.getElementById('vst-62').textContent=fmt(c.charges*12*62);
+  document.getElementById('ep-rate-box').textContent=`Taux d'épargne actuel : ${pct(c.tauxEp)}`;
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+Chart.defaults.font.family="'Syne',sans-serif";
+Chart.defaults.font.size=10;
+Chart.defaults.color='#55534f';
+
+function initCharts(){
+  const c=calcs();
+  charts.donut=new Chart(document.getElementById('chart-donut'),{
+    type:'doughnut',
+    data:{labels:['Fixes','Variables','Solde'],datasets:[{data:[0,0,0],backgroundColor:['#E8504F','#E09A20','#1DB87A'],borderWidth:0,hoverOffset:4}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${Math.round(ctx.raw).toLocaleString('fr-FR')} €`}}}}
+  });
+  charts.evo=new Chart(document.getElementById('chart-evo'),{
+    type:'bar',
+    data:{labels:['J','F','M','A','M','J','J','A','S','O','N','D'],datasets:[
+      {label:'Épargne cumulée',data:[],type:'line',borderColor:'#1DB87A',backgroundColor:'rgba(29,184,122,0.08)',borderWidth:2,tension:0.4,fill:true,yAxisID:'y1',pointRadius:2,pointBackgroundColor:'#1DB87A'},
+      {label:'Solde mensuel',data:[],backgroundColor:'rgba(58,143,232,0.2)',borderColor:'#3A8FE8',borderWidth:1,borderRadius:3,yAxisID:'y'}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#55534f'}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#55534f',callback:v=>v+'€'}},
+        y1:{grid:{display:false},position:'right',ticks:{color:'#55534f',callback:v=>(v/1000).toFixed(0)+'k'}}
+      }
+    }
+  });
+  updateCharts(c);
+}
+
+function updateCharts(c){
+  if(charts.donut){
+    charts.donut.data.datasets[0].data=[Math.round(c.fixes),Math.round(c.vars),Math.max(0,Math.round(c.solde))];
+    const tot=c.rev||1;
+    document.getElementById('leg-fix').textContent=pct(c.fixes/tot*100);
+    document.getElementById('leg-var').textContent=pct(c.vars/tot*100);
+    document.getElementById('leg-sol').textContent=pct(Math.max(0,c.solde)/tot*100);
+    charts.donut.update();
+  }
+  if(charts.evo){
+    const ep0=c.epTotal;
+    const monthly=c.vars+Math.max(0,c.solde);
+    charts.evo.data.datasets[0].data=Array.from({length:12},(_,i)=>Math.round(ep0+monthly*(i+1)));
+    charts.evo.data.datasets[1].data=Array.from({length:12},()=>Math.round(c.solde));
+    charts.evo.update();
+  }
+}
+
+// ============================================================
+// SHEETS
+// ============================================================
+function openSheet(id){
+  if(id==='sheet-profiles') renderProfilesList();
+  document.getElementById(id).classList.add('open');
+}
+function closeSheet(id){
+  document.getElementById(id).classList.remove('open');
+}
+function closeSheetBg(e,id){
+  if(e.target===document.getElementById(id)) closeSheet(id);
+}
+
+// ============================================================
+// ADD SHEET
+// ============================================================
+function openAddSheet(target){
+  modalTarget=target;
+  const titles={revenus:'Ajouter un revenu',fixes:'Ajouter une charge fixe',variables:'Ajouter une charge variable',livret:'Ajouter un livret'};
+  document.getElementById('sheet-add-title').textContent=titles[target]||'Ajouter';
+  document.getElementById('add-name').value='';
+  document.getElementById('add-amount').value='';
+  document.getElementById('add-date').value='';
+  document.getElementById('add-taux').value='';
+  document.getElementById('add-date-group').style.display=target==='fixes'?'block':'none';
+  document.getElementById('add-livret-group').style.display=target==='livret'?'block':'none';
+  document.getElementById('sheet-add').classList.add('open');
+  setTimeout(()=>document.getElementById('add-name').focus(),300);
+}
+
+function confirmAdd(){
+  const name=document.getElementById('add-name').value.trim();
+  const valStr=document.getElementById('add-amount').value.replace(',','.');
+  const val=parseFloat(valStr);
+  if(!name||isNaN(val)){toast('Remplissez tous les champs.','a');return;}
+  const newId=++nextId;
+  if(modalTarget==='livret'){
+    const taux=parseFloat(document.getElementById('add-taux').value.replace(',','.'));
+    if(isNaN(taux)){toast('Entrez un taux valide.','a');return;}
+    data.livrets.push({id:newId,name,solde:val,taux});
+  } else {
+    const newRow={id:newId,name,val};
+    if(modalTarget==='fixes'){
+      const d=parseInt(document.getElementById('add-date').value);
+      newRow.date=isNaN(d)?null:d;
+    }
+    data[modalTarget].push(newRow);
+  }
+  closeSheet('sheet-add');
+  renderAll();
+  toast('Ajouté ✓','g');
+}
+
+// ============================================================
+// EDIT SHEET
+// ============================================================
+function openEditSheet(key, id){
+  editTarget={key,id};
+  const isLivret=key==='livret';
+  const arr=isLivret?data.livrets:data[key];
+  const item=arr.find(r=>r.id===id);
+  if(!item) return;
+  const titles={revenus:'Modifier le revenu',fixes:'Modifier la charge',variables:'Modifier la charge',livret:'Modifier le livret'};
+  document.getElementById('sheet-edit-title').textContent=titles[key]||'Modifier';
+  document.getElementById('edit-name').value=item.name;
+  document.getElementById('edit-amount').value=isLivret?(+item.solde).toFixed(2):(+item.val).toFixed(2);
+  document.getElementById('edit-date-group').style.display=key==='fixes'?'block':'none';
+  document.getElementById('edit-taux-group').style.display=isLivret?'block':'none';
+  if(key==='fixes') document.getElementById('edit-date').value=item.date||'';
+  if(isLivret) document.getElementById('edit-taux').value=item.taux||'';
+  document.getElementById('sheet-edit').classList.add('open');
+}
+
+function confirmEdit(){
+  if(!editTarget) return;
+  const {key,id}=editTarget;
+  const isLivret=key==='livret';
+  const arr=isLivret?data.livrets:data[key];
+  const item=arr.find(r=>r.id===id);
+  if(!item) return;
+  const name=document.getElementById('edit-name').value.trim();
+  const amount=parseFloat(document.getElementById('edit-amount').value.replace(',','.'));
+  if(!name||isNaN(amount)){toast('Remplissez tous les champs.','a');return;}
+  item.name=name;
+  if(isLivret){
+    item.solde=amount;
+    const taux=parseFloat(document.getElementById('edit-taux').value.replace(',','.'));
+    if(!isNaN(taux)) item.taux=taux;
+  } else {
+    item.val=amount;
+    if(key==='fixes'){
+      const d=parseInt(document.getElementById('edit-date').value);
+      item.date=isNaN(d)?null:d;
+    }
+  }
+  closeSheet('sheet-edit');
+  renderAll();
+  toast('Modifié ✓','g');
+}
+
+// ============================================================
+// PROFILES SHEET
+// ============================================================
+function renderProfilesList(){
+  const el=document.getElementById('profile-list-content');
+  el.innerHTML=profiles.map(p=>`
+    <div class="profile-list-item ${p.id===activeProfileId?'selected':''}" onclick="switchProfile('${p.id}')">
+      <span style="font-size:20px">${p.avatar}</span>
+      <div style="flex:1">
+        <div class="profile-list-name">${esc(p.name)}</div>
+        <div class="profile-list-sub">${p.id===activeProfileId?'Profil actif':'Appuyer pour activer'}</div>
+      </div>
+      ${profiles.length>1&&p.id!==activeProfileId
+        ?`<button class="profile-del" onclick="event.stopPropagation();deleteProfile('${p.id}')">×</button>`
+        :''}
+    </div>
+  `).join('');
+}
+
+function switchProfile(id){
+  saveProfileData();
+  activeProfileId=id;
+  loadProfileData();
+  renderProfilesList();
+  renderAll();
+  toast('Profil changé','g');
+}
+
+function addProfile(){
+  const name=document.getElementById('new-profile-name').value.trim();
+  if(!name){toast('Entrez un prénom.','a');return;}
+  const idx=profiles.length%PROFILE_COLORS.length;
+  profiles.push({id:'p_'+Date.now(),name,color:PROFILE_COLORS[idx],avatar:PROFILE_AVATARS[idx]});
+  saveProfilesMeta();
+  renderProfilesList();
+  toast('Profil créé !','g');
+  document.getElementById('new-profile-name').value='';
+}
+
+function deleteProfile(id){
+  if(!confirm('Supprimer ce profil ?')) return;
+  profiles=profiles.filter(p=>p.id!==id);
+  localStorage.removeItem('bgt_data_'+id);
+  saveProfilesMeta();
+  renderProfilesList();
+  toast('Profil supprimé','r');
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+let toastTimer=null;
+function toast(msg, type='g'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='toast show '+(type||'g');
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+// ============================================================
+// KEYBOARD
+// ============================================================
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    if(document.getElementById('sheet-add').classList.contains('open')) confirmAdd();
+    if(document.getElementById('sheet-edit').classList.contains('open')) confirmEdit();
+  }
+  if(e.key==='Escape'){
+    ['sheet-add','sheet-edit','sheet-profiles'].forEach(closeSheet);
+  }
+});
+
+// ============================================================
+// SERVICE WORKER
+// ============================================================
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+init();
+</script>
+</body>
+</html>
